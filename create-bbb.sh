@@ -117,6 +117,19 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
 
   sed -i "s|^STUN_IP=.*|STUN_IP=$DROPLET_IP|" .env
 
+  # Configure LDAP authentication when LDAP_SERVER is set
+  if [ -n "$LDAP_SERVER" ]; then
+    sed -i '/^AUTH=/d' .env
+    echo "AUTH=ldap" >> .env
+    sed -i "s|^LDAP_SERVER=.*|LDAP_SERVER=$LDAP_SERVER|" .env || echo "LDAP_SERVER=$LDAP_SERVER" >> .env
+    sed -i "s|^LDAP_PORT=.*|LDAP_PORT=$LDAP_PORT|" .env || echo "LDAP_PORT=$LDAP_PORT" >> .env
+    sed -i "s|^LDAP_METHOD=.*|LDAP_METHOD=$LDAP_METHOD|" .env || echo "LDAP_METHOD=$LDAP_METHOD" >> .env
+    sed -i "s|^LDAP_BASE=.*|LDAP_BASE=$LDAP_BASE|" .env || echo "LDAP_BASE=$LDAP_BASE" >> .env
+    sed -i "s|^LDAP_UID=.*|LDAP_UID=$LDAP_UID|" .env || echo "LDAP_UID=$LDAP_UID" >> .env
+    sed -i "s|^LDAP_BIND_DN=.*|LDAP_BIND_DN=$LDAP_BIND_DN|" .env || echo "LDAP_BIND_DN=$LDAP_BIND_DN" >> .env
+    sed -i "s|^LDAP_PASSWORD=.*|LDAP_PASSWORD=$LDAP_PASSWORD|" .env || echo "LDAP_PASSWORD=$LDAP_PASSWORD" >> .env
+  fi
+
   # Change secrets to random values
 
   sed -i "s/SHARED_SECRET=.*/SHARED_SECRET=$RANDOM_1/" .env
