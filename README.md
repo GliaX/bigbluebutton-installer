@@ -1,6 +1,8 @@
-# bigbluebutton-installer
-Big Blue Button Installer
+# BigBlueButton Installer
+This script installs an instance of BigBlueButton on beefy server architecture sufficient for 
+500-1000 concurrent users in a webinar. The background infrastructure is DigitalOcean droplets.
 
+# Usage
 Copy `sample.env` to `.env` and update the values for your environment.
 `RESERVED_IP` should be set to your DigitalOcean reserved IP so the droplet
 is assigned that address after creation.
