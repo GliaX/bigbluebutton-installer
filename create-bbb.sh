@@ -9,6 +9,7 @@ GANDI_API_KEY="INSERT_KEY_HERE"  # Replace with your actual key
 REGION="tor1"
 IMAGE="ubuntu-24-04-x64"
 DROPLET_NAME="bbb-docker-webinar"
+RESERVED_IP="0.0.0.0"  # Replace with your reserved IP
 
 # === PROMPT FOR SIZE ===
 echo "Choose droplet size:"
@@ -37,19 +38,13 @@ doctl compute droplet create $DROPLET_NAME \
   --ssh-keys $SSH_KEY_ID \
   --wait
 
-# === GET IP ===
-DROPLET_IP=$(doctl compute droplet list --format Name,PublicIPv4 --no-header | grep "$DROPLET_NAME" | awk '{print $2}')
-echo "Droplet created with IP: $DROPLET_IP"
+# === ASSIGN RESERVED IP ===
+DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | grep "$DROPLET_NAME" | awk '{print $1}')
+echo "Assigning reserved IP '$RESERVED_IP' to droplet..."
+doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
+DROPLET_IP=$RESERVED_IP
+echo "Droplet assigned reserved IP: $DROPLET_IP"
 
-# === UPDATE GANDI DNS ===
-echo "Updating DNS A record for $FULL_DOMAIN → $DROPLET_IP..."
-curl -s -X PUT "https://api.gandi.net/v5/livedns/domains/$DOMAIN/records/$SUBDOMAIN/A" \
-  -H "Authorization: Bearer $GANDI_API_KEY" \
-  -H "Content-Type: application/json" \
-  --data "{\"rrset_values\": [\"$DROPLET_IP\"], \"rrset_ttl\": 300}"
-
-echo "Waiting 60 seconds for DNS to propagate..."
-sleep 60
 
 # === INSTALL BBB DOCKER ===
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
