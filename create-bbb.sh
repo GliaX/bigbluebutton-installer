@@ -45,15 +45,6 @@ doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
 DROPLET_IP=$RESERVED_IP
 echo "Droplet assigned reserved IP: $DROPLET_IP"
 
-# === UPDATE GANDI DNS ===
-echo "Updating DNS A record for $FULL_DOMAIN → $DROPLET_IP..."
-curl -s -X PUT "https://api.gandi.net/v5/livedns/domains/$DOMAIN/records/$SUBDOMAIN/A" \
-  -H "Authorization: Bearer $GANDI_API_KEY" \
-  -H "Content-Type: application/json" \
-  --data "{\"rrset_values\": [\"$DROPLET_IP\"], \"rrset_ttl\": 300}"
-
-echo "Waiting 60 seconds for DNS to propagate..."
-sleep 60
 
 # === INSTALL BBB DOCKER ===
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
