@@ -1,15 +1,18 @@
 #!/bin/bash
 
 # === CONFIG ===
-DOMAIN="glia.org"
-SUBDOMAIN="webinar"
+# Load user configuration from .env
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+else
+  echo "Missing .env file. Copy sample.env to .env and update the values." >&2
+  exit 1
+fi
+
+# Derived values
 FULL_DOMAIN="$SUBDOMAIN.$DOMAIN"
-EMAIL="your@email.com"
-GANDI_API_KEY="INSERT_KEY_HERE"  # Replace with your actual key
-REGION="tor1"
-IMAGE="ubuntu-24-04-x64"
-DROPLET_NAME="bbb-docker-webinar"
-RESERVED_IP="0.0.0.0"  # Replace with your reserved IP
 
 # === PROMPT FOR SIZE ===
 echo "Choose droplet size:"
