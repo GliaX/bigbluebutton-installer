@@ -48,6 +48,17 @@ doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
 DROPLET_IP=$RESERVED_IP
 echo "Droplet assigned reserved IP: $DROPLET_IP"
 
+# === ATTACH BLOCK STORAGE ===
+if [ -n "$BLOCK_STORAGE_NAME" ]; then
+  VOLUME_ID=$(doctl compute volume list --region "$REGION" --format ID,Name --no-header | grep "^.*\s$BLOCK_STORAGE_NAME$" | awk '{print $1}')
+  if [ -z "$VOLUME_ID" ]; then
+    echo "Block storage volume '$BLOCK_STORAGE_NAME' not found in region $REGION" >&2
+    exit 1
+  fi
+  echo "Attaching block storage volume '$BLOCK_STORAGE_NAME'..."
+  doctl compute volume-action attach "$VOLUME_ID" "$DROPLET_ID" --region "$REGION"
+fi
+
 
 # === INSTALL BBB DOCKER ===
 
@@ -99,6 +110,17 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   # Clone BBB Docker repo
   git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker
   cd /opt/bbb-docker
+
+  # Mount attached block storage volume when specified
+  if [ -n "$BLOCK_STORAGE_NAME" ]; then
+    DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
+    mkdir -p /opt/bbb-docker/data
+    if ! blkid "${DEVICE}" >/dev/null 2>&1; then
+      mkfs.ext4 -F "${DEVICE}"
+    fi
+    grep -q "${DEVICE}" /etc/fstab || echo "${DEVICE} /opt/bbb-docker/data ext4 defaults,nofail 0 0" >> /etc/fstab
+    mount /opt/bbb-docker/data
+  fi
 
 
   # Create docker-compose.yml from template
