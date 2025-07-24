@@ -50,6 +50,10 @@ echo "Droplet assigned reserved IP: $DROPLET_IP"
 
 
 # === INSTALL BBB DOCKER ===
+
+echo "⏳ Waiting for network to stabilize..."
+sleep 5
+
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   export DEBIAN_FRONTEND=noninteractive
   apt update && apt upgrade -y
@@ -121,13 +125,13 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   if [ -n "$LDAP_SERVER" ]; then
     sed -i '/^AUTH=/d' .env
     echo "AUTH=ldap" >> .env
-    sed -i "s|^LDAP_SERVER=.*|LDAP_SERVER=$LDAP_SERVER|" .env || echo "LDAP_SERVER=$LDAP_SERVER" >> .env
-    sed -i "s|^LDAP_PORT=.*|LDAP_PORT=$LDAP_PORT|" .env || echo "LDAP_PORT=$LDAP_PORT" >> .env
-    sed -i "s|^LDAP_METHOD=.*|LDAP_METHOD=$LDAP_METHOD|" .env || echo "LDAP_METHOD=$LDAP_METHOD" >> .env
-    sed -i "s|^LDAP_BASE=.*|LDAP_BASE=$LDAP_BASE|" .env || echo "LDAP_BASE=$LDAP_BASE" >> .env
-    sed -i "s|^LDAP_UID=.*|LDAP_UID=$LDAP_UID|" .env || echo "LDAP_UID=$LDAP_UID" >> .env
-    sed -i "s|^LDAP_BIND_DN=.*|LDAP_BIND_DN=$LDAP_BIND_DN|" .env || echo "LDAP_BIND_DN=$LDAP_BIND_DN" >> .env
-    sed -i "s|^LDAP_PASSWORD=.*|LDAP_PASSWORD=$LDAP_PASSWORD|" .env || echo "LDAP_PASSWORD=$LDAP_PASSWORD" >> .env
+    echo "LDAP_SERVER=$LDAP_SERVER" >> .env
+    echo "LDAP_PORT=$LDAP_PORT" >> .env
+    echo "LDAP_METHOD=$LDAP_METHOD" >> .env
+    echo "LDAP_BASE=$LDAP_BASE" >> .env
+    echo "LDAP_UID=$LDAP_UID" >> .env
+    echo "LDAP_BIND_DN=$LDAP_BIND_DN" >> .env
+    echo "LDAP_PASSWORD=$LDAP_PASSWORD" >> .env
   fi
 
   # Change secrets to random values
