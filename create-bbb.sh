@@ -187,6 +187,7 @@ done
 
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
   VERBOSE=$VERBOSE
+  echo "Cloning BigBlueButton Docker repository"
   # Clone BBB Docker repo
   if [ "\$VERBOSE" = true ]; then
     git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker
