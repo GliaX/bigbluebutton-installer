@@ -1,12 +1,22 @@
 #!/bin/bash
 
 DRY_RUN=false
+VERBOSE=false
+
+run_cmd() {
+  if [ "$VERBOSE" = true ]; then
+    eval "$@"
+  else
+    eval "$@" >/dev/null 2>&1
+  fi
+}
 
 usage() {
   cat <<EOF
-Usage: $0 [--dry-run] [-h]
+Usage: $0 [--dry-run] [-v] [-h]
 
   --dry-run  Skip apt and docker commands.
+  -v         Enable verbose output.
   -h         Show this help message.
 EOF
 }
@@ -15,6 +25,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)
       DRY_RUN=true
+      shift
+      ;;
+    -v|--verbose)
+      VERBOSE=true
       shift
       ;;
     -h|--help)
@@ -52,7 +66,7 @@ if doctl compute droplet list --format Name --no-header | grep -Fxq "$DROPLET_NA
     DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | awk -v name="$DROPLET_NAME" '$2==name {print $1}')
     if [ -n "$DROPLET_ID" ]; then
       echo "Deleting droplet '$DROPLET_NAME'..."
-      doctl compute droplet delete "$DROPLET_ID" --force
+      run_cmd doctl compute droplet delete "$DROPLET_ID" --force
     fi
   else
     echo "Exiting without creating a new droplet."
@@ -80,7 +94,7 @@ SSH_KEY_ID=$(doctl compute ssh-key list --format ID --no-header | head -n 1)
 
 # === CREATE DROPLET ===
 echo "💧 Creating droplet '$DROPLET_NAME' with size '$SIZE'..."
-doctl compute droplet create $DROPLET_NAME \
+run_cmd doctl compute droplet create $DROPLET_NAME \
   --region $REGION \
   --image $IMAGE \
   --size $SIZE \
@@ -90,7 +104,7 @@ doctl compute droplet create $DROPLET_NAME \
 # === ASSIGN RESERVED IP ===
 DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | grep "$DROPLET_NAME" | awk '{print $1}')
 echo "📡 Assigning reserved IP '$RESERVED_IP' to droplet..."
-doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
+run_cmd doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
 DROPLET_IP=$RESERVED_IP
 echo "📡 Droplet assigned reserved IP: $DROPLET_IP"
 
@@ -102,7 +116,7 @@ if [ -n "$BLOCK_STORAGE_NAME" ]; then
     exit 1
   fi
   echo "💾 Attaching block storage volume '$BLOCK_STORAGE_NAME'..."
-  doctl compute volume-action attach "$VOLUME_ID" "$DROPLET_ID"
+  run_cmd doctl compute volume-action attach "$VOLUME_ID" "$DROPLET_ID"
 fi
 
 
@@ -111,25 +125,39 @@ fi
 echo "⏳ Waiting for network to stabilize..."
 sleep 5
 
-ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
+ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF2
+  VERBOSE=$VERBOSE
   export DEBIAN_FRONTEND=noninteractive
   if [ "$DRY_RUN" != true ]; then
-  apt update && apt upgrade -y
-  apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common
+    if [ "\$VERBOSE" = true ]; then
+      apt update && apt upgrade -y
+      apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common
 
-  # Install Docker
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-  echo \
-    "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \\
-    \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  apt update
-  apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  reboot
+      # Install Docker
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      echo \
+        "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+        \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      apt update
+      apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      reboot
+    else
+      apt update >/dev/null 2>&1 && apt upgrade -y >/dev/null 2>&1
+      apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common >/dev/null 2>&1
 
+      # Install Docker
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg >/dev/null 2>&1
+      echo \
+        "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+        \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      apt update >/dev/null 2>&1
+      apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null 2>&1
+      reboot >/dev/null 2>&1
+    fi
   else
     echo "[Dry run] Skipping apt and docker installation commands"
   fi
-EOF
+EOF2
 
 echo "⏳ Creating random values for secrets..."
 
@@ -156,9 +184,15 @@ done
 
 # Log back in and install BBB
 
-ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
+
+ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
+  VERBOSE=$VERBOSE
   # Clone BBB Docker repo
-  git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker
+  if [ "\$VERBOSE" = true ]; then
+    git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker
+  else
+    git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker >/dev/null 2>&1
+  fi
   cd /opt/bbb-docker
 
   # Mount attached block storage volume when specified
@@ -167,20 +201,19 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
     DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
     mkdir -p /opt/bbb-docker/data
     if ! blkid "${DEVICE}" >/dev/null 2>&1; then
-      mkfs.ext4 -F "${DEVICE}"
+      mkfs.ext4 -F "${DEVICE}" >/dev/null 2>&1
     fi
     if ! grep -q "${DEVICE}" /etc/fstab; then
       echo "${DEVICE} /opt/bbb-docker/data ext4 defaults,nofail 0 0" >> /etc/fstab
-      systemctl daemon-reload
+      systemctl daemon-reload >/dev/null 2>&1
     fi
-    mount /opt/bbb-docker/data
+    mount /opt/bbb-docker/data >/dev/null 2>&1
   fi
 
-
   # Create docker-compose.yml from template
-  cp docker-compose.tmpl.yml docker-compose.yml
+  cp docker-compose.tmpl.yml docker-compose.yml >/dev/null 2>&1
   # Create .env from sample.env
-  cp sample.env .env
+  cp sample.env .env >/dev/null 2>&1
 
   # Set ENABLE_RECORDING to true
   sed -i '/^ENABLE_RECORDING=/d' .env
@@ -211,7 +244,6 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   fi
 
   # Change secrets to random values
-
   sed -i "s/SHARED_SECRET=.*/SHARED_SECRET=$RANDOM_1/" .env
   sed -i "s/ETHERPAD_API_KEY=.*/ETHERPAD_API_KEY=$RANDOM_2/" .env
   sed -i "s/RAILS_SECRET=.*/RAILS_SECRET=$RANDOM_3/" .env
@@ -220,14 +252,17 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=$TURN_SECRET/" .env
 
   # Generate docker-compose YAML file
-  ./scripts/generate-compose
+  ./scripts/generate-compose >/dev/null 2>&1
 
   # Run BBB via Docker Compose
   if [ "$DRY_RUN" != true ]; then
-    docker compose up -d
+    if [ "\$VERBOSE" = true ]; then
+      docker compose up -d
+    else
+      docker compose up -d >/dev/null 2>&1
+    fi
   else
     echo "[Dry run] Skipping 'docker compose up -d'"
   fi
-EOF
-
+EOF3
 echo "✅ BigBlueButton (Docker) installation started on https://$FULL_DOMAIN"
