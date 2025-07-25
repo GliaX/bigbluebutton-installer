@@ -56,7 +56,7 @@ if [ -n "$BLOCK_STORAGE_NAME" ]; then
     exit 1
   fi
   echo "Attaching block storage volume '$BLOCK_STORAGE_NAME'..."
-  doctl compute volume-action attach "$VOLUME_ID" "$DROPLET_ID" --region "$REGION"
+  doctl compute volume-action attach "$VOLUME_ID" "$DROPLET_ID"
 fi
 
 
