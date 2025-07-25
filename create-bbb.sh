@@ -125,6 +125,9 @@ fi
 echo "⏳ Waiting for network to stabilize..."
 sleep 5
 
+OLD_BOOT_ID=$(ssh -o StrictHostKeyChecking=no root@$DROPLET_IP \
+  'cat /proc/sys/kernel/random/boot_id')
+
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF2
   VERBOSE=$VERBOSE
   export DEBIAN_FRONTEND=noninteractive
@@ -172,8 +175,15 @@ echo "⏳ Creating random values for secrets..."
 
 # Then wait for reboot
 echo "⏳ Waiting for droplet to reboot..."
-while ping -c 1 "$DROPLET_IP" &> /dev/null; do sleep 1; done
-while ! ping -c 1 "$DROPLET_IP" &> /dev/null; do sleep 1; done
+for i in {1..60}; do
+  NEW_BOOT_ID=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 \
+    root@$DROPLET_IP 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null)
+  if [[ -n "$NEW_BOOT_ID" && "$NEW_BOOT_ID" != "$OLD_BOOT_ID" ]]; then
+    echo "🔄 Detected droplet reboot."
+    break
+  fi
+  sleep 2
+done
 
 # Optionally wait for SSH too
 until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 root@$DROPLET_IP 'echo "SSH ready"' 2>/dev/null; do
