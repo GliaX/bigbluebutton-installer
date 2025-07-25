@@ -14,6 +14,23 @@ fi
 # Derived values
 FULL_DOMAIN="$SUBDOMAIN.$DOMAIN"
 
+# === CHECK FOR EXISTING DROPLET ===
+echo "✅ Checking for existing droplet '$DROPLET_NAME'..."
+if doctl compute droplet list --format Name --no-header | grep -Fxq "$DROPLET_NAME"; then
+  read -r -p "Droplet '$DROPLET_NAME' already exists. Delete it? [y/N] " RESP
+  RESP=${RESP:-N}
+  if [[ "$RESP" =~ ^[Yy]$ ]]; then
+    DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | awk -v name="$DROPLET_NAME" '$2==name {print $1}')
+    if [ -n "$DROPLET_ID" ]; then
+      echo "Deleting droplet '$DROPLET_NAME'..."
+      doctl compute droplet delete "$DROPLET_ID" --force
+    fi
+  else
+    echo "Exiting without creating a new droplet."
+    exit 0
+  fi
+fi
+
 # === PROMPT FOR SIZE ===
 echo "Choose droplet size:"
 echo "1) 32 vCPU / 64 GB RAM / 800GB SSD  → slug: c2-32vcpu-64gb"
