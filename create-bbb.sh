@@ -143,7 +143,6 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF2
         \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
       apt update
       apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-      reboot
     else
       apt update >/dev/null 2>&1 && apt upgrade -y >/dev/null 2>&1
       apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common >/dev/null 2>&1
@@ -182,6 +181,9 @@ for i in {1..60}; do
     echo "🔄 Detected droplet reboot."
     break
   fi
+  if [ "\$VERBOSE" = true ]; then
+    echo "Droplet reboot not detected..."
+  fi
   sleep 2
 done
 
@@ -205,16 +207,18 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker >/dev/null 2>&1
   fi
   cd /opt/bbb-docker
-
+  echo "block_storage_name = $BLOCK_STORAGE_NAME"
   # Mount attached block storage volume when specified
   if [ -n "$BLOCK_STORAGE_NAME" ]; then
     echo "Mounting block storage inside droplet"
-    DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
     mkdir -p /opt/bbb-docker/data
     # Wait for the block device to become available
     echo "⏳ Waiting for block device to become available..."
     for i in {1..30}; do
       [ -e "${DEVICE}" ] && break
+      if [ "\$VERBOSE" = true ]; then
+        echo "Device $DEVICE still not detected"
+      fi
       sleep 2
     done
     if ! blkid "${DEVICE}" >/dev/null 2>&1; then
