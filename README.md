@@ -13,3 +13,7 @@ name of that volume and it will be attached and mounted at `/opt/bbb-docker/data
 To enable LDAP logins for Greenlight, populate the LDAP variables in `.env`.
 If `LDAP_SERVER` is set, the installer will configure BigBlueButton to use
 LDAP authentication.
+
+Run `./create-bbb.sh -h` to see available options. Passing `--dry-run` will skip
+all `apt` and `docker` commands so you can verify what the script would do
+without performing the installation.
