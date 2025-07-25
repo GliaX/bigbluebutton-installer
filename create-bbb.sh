@@ -136,7 +136,10 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
     if ! blkid "${DEVICE}" >/dev/null 2>&1; then
       mkfs.ext4 -F "${DEVICE}"
     fi
-    grep -q "${DEVICE}" /etc/fstab || echo "${DEVICE} /opt/bbb-docker/data ext4 defaults,nofail 0 0" >> /etc/fstab
+    if ! grep -q "${DEVICE}" /etc/fstab; then
+      echo "${DEVICE} /opt/bbb-docker/data ext4 defaults,nofail 0 0" >> /etc/fstab
+      systemctl daemon-reload
+    fi
     mount /opt/bbb-docker/data
   fi
 
