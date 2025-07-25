@@ -130,6 +130,7 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
 
   # Mount attached block storage volume when specified
   if [ -n "$BLOCK_STORAGE_NAME" ]; then
+    echo "Mounting block storage inside droplet"
     DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
     mkdir -p /opt/bbb-docker/data
     if ! blkid "${DEVICE}" >/dev/null 2>&1; then
