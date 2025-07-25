@@ -154,11 +154,11 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF2
         \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
       apt update >/dev/null 2>&1
       apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null 2>&1
-      reboot >/dev/null 2>&1
     fi
   else
     echo "[Dry run] Skipping apt and docker installation commands"
   fi
+  reboot
 EOF2
 
 echo "⏳ Creating random values for secrets..."
