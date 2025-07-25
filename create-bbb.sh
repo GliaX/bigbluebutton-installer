@@ -1,5 +1,34 @@
 #!/bin/bash
 
+DRY_RUN=false
+
+usage() {
+  cat <<EOF
+Usage: $0 [--dry-run] [-h]
+
+  --dry-run  Skip apt and docker commands.
+  -h         Show this help message.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
 # === CONFIG ===
 # Load user configuration from .env
 if [ -f .env ]; then
@@ -84,6 +113,7 @@ sleep 5
 
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   export DEBIAN_FRONTEND=noninteractive
+  if [ "$DRY_RUN" != true ]; then
   apt update && apt upgrade -y
   apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common
 
@@ -94,8 +124,11 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
     \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   apt update
   apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
   reboot
+
+  else
+    echo "[Dry run] Skipping apt and docker installation commands"
+  fi
 EOF
 
 echo "⏳ Creating random values for secrets..."
@@ -187,7 +220,11 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF
   ./scripts/generate-compose
 
   # Run BBB via Docker Compose
-  docker compose up -d
+  if [ "$DRY_RUN" != true ]; then
+    docker compose up -d
+  else
+    echo "[Dry run] Skipping 'docker compose up -d'"
+  fi
 EOF
 
 echo "✅ BigBlueButton (Docker) installation started on https://$FULL_DOMAIN"
