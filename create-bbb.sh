@@ -50,7 +50,7 @@ esac
 SSH_KEY_ID=$(doctl compute ssh-key list --format ID --no-header | head -n 1)
 
 # === CREATE DROPLET ===
-echo "Creating droplet '$DROPLET_NAME' with size '$SIZE'..."
+echo "💧 Creating droplet '$DROPLET_NAME' with size '$SIZE'..."
 doctl compute droplet create $DROPLET_NAME \
   --region $REGION \
   --image $IMAGE \
@@ -60,19 +60,19 @@ doctl compute droplet create $DROPLET_NAME \
 
 # === ASSIGN RESERVED IP ===
 DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | grep "$DROPLET_NAME" | awk '{print $1}')
-echo "Assigning reserved IP '$RESERVED_IP' to droplet..."
+echo "📡 Assigning reserved IP '$RESERVED_IP' to droplet..."
 doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
 DROPLET_IP=$RESERVED_IP
-echo "Droplet assigned reserved IP: $DROPLET_IP"
+echo "📡 Droplet assigned reserved IP: $DROPLET_IP"
 
 # === ATTACH BLOCK STORAGE ===
 if [ -n "$BLOCK_STORAGE_NAME" ]; then
   VOLUME_ID=$(doctl compute volume list --region "$REGION" --format ID,Name --no-header | grep "^.*\s$BLOCK_STORAGE_NAME$" | awk '{print $1}')
   if [ -z "$VOLUME_ID" ]; then
-    echo "Block storage volume '$BLOCK_STORAGE_NAME' not found in region $REGION" >&2
+    echo "💾 Block storage volume '$BLOCK_STORAGE_NAME' not found in region $REGION" >&2
     exit 1
   fi
-  echo "Attaching block storage volume '$BLOCK_STORAGE_NAME'..."
+  echo "💾 Attaching block storage volume '$BLOCK_STORAGE_NAME'..."
   doctl compute volume-action attach "$VOLUME_ID" "$DROPLET_ID"
 fi
 
