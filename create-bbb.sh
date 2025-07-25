@@ -200,6 +200,11 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     echo "Mounting block storage inside droplet"
     DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
     mkdir -p /opt/bbb-docker/data
+    # Wait for the block device to become available
+    for i in {1..30}; do
+      [ -e "${DEVICE}" ] && break
+      sleep 2
+    done
     if ! blkid "${DEVICE}" >/dev/null 2>&1; then
       mkfs.ext4 -F "${DEVICE}" >/dev/null 2>&1
     fi

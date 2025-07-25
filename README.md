@@ -9,6 +9,8 @@ is assigned that address after creation.
 
 If you have a DigitalOcean block storage volume, set `BLOCK_STORAGE_NAME` to the
 name of that volume and it will be attached and mounted at `/opt/bbb-docker/data`.
+The installer waits for the device to become available before formatting and
+mounting it.
 
 To enable LDAP logins for Greenlight, populate the LDAP variables in `.env`.
 If `LDAP_SERVER` is set, the installer will configure BigBlueButton to use
