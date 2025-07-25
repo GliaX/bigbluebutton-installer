@@ -193,9 +193,12 @@ until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 root@$DROPLET_IP 'echo
 done
 
 
+# Set Device name if Block storage is defined
+  if [ -n "$BLOCK_STORAGE_NAME" ]; then
+    DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
+  fi
 
 # Log back in and install BBB
-
 
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
   VERBOSE=$VERBOSE
