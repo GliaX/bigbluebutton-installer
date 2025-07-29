@@ -286,6 +286,14 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     echo "LDAP_BIND_DN=$LDAP_BIND_DN" >> .env
     echo "LDAP_PASSWORD=$LDAP_PASSWORD" >> .env
   fi
+  if [ "$KEYCLOAK_ENABLED" = true ]; then
+    sed -i "/^AUTH=/d" .env
+    echo "AUTH=oauth2" >> .env
+    echo "OAUTH2_PROVIDER=keycloak" >> .env
+    echo "OAUTH2_CLIENT_ID=bbb" >> .env
+    echo "OAUTH2_CLIENT_SECRET=$KEYCLOAK_BBB_SECRET" >> .env
+    echo "OAUTH2_ISSUER=https://$FULL_DOMAIN:8081/realms/master" >> .env
+  fi
 
   # Change secrets to random values
   sed -i "s/SHARED_SECRET=.*/SHARED_SECRET=$RANDOM_1/" .env
@@ -315,6 +323,16 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     fi
   else
     echo "[Dry run] Skipping 'docker compose up -d'"
+  fi
+  if [ "$KEYCLOAK_ENABLED" = true ]; then
+    docker run -d --name keycloak -p 8081:8080 \
+      -e KEYCLOAK_ADMIN="$KEYCLOAK_ADMIN" \
+      -e KEYCLOAK_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" \
+      -e LDAP_URL="$KEYCLOAK_LDAP_URL" \
+      -e LDAP_BASE_DN="$KEYCLOAK_LDAP_BASE_DN" \
+      -e LDAP_BIND_DN="$KEYCLOAK_LDAP_BIND_DN" \
+      -e LDAP_BIND_CREDENTIALS="$KEYCLOAK_LDAP_BIND_PASSWORD" \
+      quay.io/keycloak/keycloak:latest start-dev
   fi
 EOF3
 echo "✅ BigBlueButton (Docker) installation started on https://$FULL_DOMAIN"

@@ -16,6 +16,10 @@ To enable LDAP logins for Greenlight, populate the LDAP variables in `.env`.
 If `LDAP_SERVER` is set, the installer will configure BigBlueButton to use
 LDAP authentication.
 
+The installer can also spin up a Keycloak instance that authenticates against
+the same LDAP server. Set `KEYCLOAK_ENABLED=true` and configure the `KEYCLOAK_*`
+variables in `.env` to enable OAuth2 login via Keycloak.
+
 Run `./create-bbb.sh -h` to see available options. Passing `--dry-run` will skip
 all `apt` and `docker` commands so you can verify what the script would do
 without performing the installation.
