@@ -34,6 +34,14 @@ fingerprint across reinstallations:
 This keeps the host key consistent so clients do not see a change on each
 install.
 
+## Persisting the Postgres Password
+
+When a block storage volume is attached, the installer reuses the same
+`POSTGRESQL_SECRET` across reinstalls. The first run generates a random
+password and saves it to `/opt/bbb-docker/data/postgres_secret`. Subsequent
+installs read this file to restore the password so the existing database can be
+mounted without errors.
+
 ## DigitalOcean Snapshot Pricing
 
 DigitalOcean charges **$0.05 USD per GB** of snapshot storage per month. This

@@ -205,6 +205,7 @@ done
 
 ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
   VERBOSE=$VERBOSE
+  POSTGRES_SECRET=""
   echo "Cloning BigBlueButton Docker repository"
   # Clone BBB Docker repo
   if [ "\$VERBOSE" = true ]; then
@@ -243,6 +244,13 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
       systemctl restart ssh >/dev/null 2>&1
     else
       cp /etc/ssh/ssh_host_* /opt/bbb-docker/data/ssh_host_keys/
+    fi
+
+    # Reuse persisted Postgres secret when available
+    if [ -f /opt/bbb-docker/data/postgres_secret ]; then
+      POSTGRES_SECRET=$(cat /opt/bbb-docker/data/postgres_secret)
+    else
+      POSTGRES_SECRET=""
     fi
   fi
 
@@ -284,7 +292,15 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
   sed -i "s/ETHERPAD_API_KEY=.*/ETHERPAD_API_KEY=$RANDOM_2/" .env
   sed -i "s/RAILS_SECRET=.*/RAILS_SECRET=$RANDOM_3/" .env
   sed -i "s/FSESL_PASSWORD=.*/FSESL_PASSWORD=$RANDOM_4/" .env
-  sed -i "s/POSTGRESQL_SECRET=.*/POSTGRESQL_SECRET=$RANDOM_5/" .env
+
+  # Determine persistent Postgres secret
+  if [ -z "\$POSTGRES_SECRET" ]; then
+    POSTGRES_SECRET=$RANDOM_5
+    if [ -n "$BLOCK_STORAGE_NAME" ]; then
+      echo "$POSTGRES_SECRET" > /opt/bbb-docker/data/postgres_secret
+    fi
+  fi
+  sed -i "s/POSTGRESQL_SECRET=.*/POSTGRESQL_SECRET=$POSTGRES_SECRET/" .env
   sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=$TURN_SECRET/" .env
 
   # Generate docker-compose YAML file
