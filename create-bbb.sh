@@ -108,6 +108,9 @@ run_cmd doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
 DROPLET_IP=$RESERVED_IP
 echo "📡 Droplet assigned reserved IP: $DROPLET_IP"
 
+# Remove any old host key for this IP from known_hosts
+ssh-keygen -R "$DROPLET_IP" >/dev/null 2>&1 || true
+
 # === ATTACH BLOCK STORAGE ===
 if [ -n "$BLOCK_STORAGE_NAME" ]; then
   VOLUME_ID=$(doctl compute volume list --region "$REGION" --format ID,Name --no-header | grep "^.*\s$BLOCK_STORAGE_NAME$" | awk '{print $1}')
@@ -215,6 +218,15 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
       systemctl daemon-reload >/dev/null 2>&1
     fi
     mount /opt/bbb-docker/data >/dev/null 2>&1
+
+    # Persist SSH host keys on the volume
+    mkdir -p /opt/bbb-docker/data/ssh_host_keys
+    if [ -f /opt/bbb-docker/data/ssh_host_keys/ssh_host_rsa_key ]; then
+      cp /opt/bbb-docker/data/ssh_host_keys/ssh_host_* /etc/ssh/
+      systemctl restart ssh >/dev/null 2>&1
+    else
+      cp /etc/ssh/ssh_host_* /opt/bbb-docker/data/ssh_host_keys/
+    fi
   fi
 
   # Create docker-compose.yml from template
