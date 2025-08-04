@@ -164,15 +164,10 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF2
   reboot
 EOF2
 
-echo "⏳ Creating random values for secrets..."
+echo "⏳ Creating random value for secrets..."
 
-  # Create random values for secrets
-  RANDOM_1=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
-  RANDOM_2=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
-  RANDOM_3=$(head /dev/urandom | tr -dc a-f0-9 | head -c 128)
-  RANDOM_4=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
+  # Create random value for PostgreSQL secret (others handled on droplet)
   RANDOM_5=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
-  TURN_SECRET=$(head /dev/urandom | tr -dc A-Za-f0-9 | head -c 32)
 
 
 # Then wait for reboot
@@ -254,6 +249,41 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     fi
   fi
 
+  # Ensure data directory exists for storing secrets
+  mkdir -p /opt/bbb-docker/data
+
+  # Load or generate persistent secrets
+  if [ -f /opt/bbb-docker/data/secret_SHARED_SECRET ]; then
+    SHARED_SECRET=\$(cat /opt/bbb-docker/data/secret_SHARED_SECRET)
+  else
+    SHARED_SECRET=\$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
+    echo "\$SHARED_SECRET" > /opt/bbb-docker/data/secret_SHARED_SECRET
+  fi
+  if [ -f /opt/bbb-docker/data/secret_ETHERPAD_API_KEY ]; then
+    ETHERPAD_API_KEY=\$(cat /opt/bbb-docker/data/secret_ETHERPAD_API_KEY)
+  else
+    ETHERPAD_API_KEY=\$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
+    echo "\$ETHERPAD_API_KEY" > /opt/bbb-docker/data/secret_ETHERPAD_API_KEY
+  fi
+  if [ -f /opt/bbb-docker/data/secret_RAILS_SECRET ]; then
+    RAILS_SECRET=\$(cat /opt/bbb-docker/data/secret_RAILS_SECRET)
+  else
+    RAILS_SECRET=\$(head /dev/urandom | tr -dc a-f0-9 | head -c 128)
+    echo "\$RAILS_SECRET" > /opt/bbb-docker/data/secret_RAILS_SECRET
+  fi
+  if [ -f /opt/bbb-docker/data/secret_FSESL_PASSWORD ]; then
+    FSESL_PASSWORD=\$(cat /opt/bbb-docker/data/secret_FSESL_PASSWORD)
+  else
+    FSESL_PASSWORD=\$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 40)
+    echo "\$FSESL_PASSWORD" > /opt/bbb-docker/data/secret_FSESL_PASSWORD
+  fi
+  if [ -f /opt/bbb-docker/data/secret_TURN_SECRET ]; then
+    TURN_SECRET=\$(cat /opt/bbb-docker/data/secret_TURN_SECRET)
+  else
+    TURN_SECRET=\$(head /dev/urandom | tr -dc A-Za-f0-9 | head -c 32)
+    echo "\$TURN_SECRET" > /opt/bbb-docker/data/secret_TURN_SECRET
+  fi
+
   # Create docker-compose.yml from template
   cp docker-compose.tmpl.yml docker-compose.yml >/dev/null 2>&1
   # Create .env from sample.env
@@ -295,11 +325,11 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     echo "OAUTH2_ISSUER=https://$FULL_DOMAIN:8081/realms/master" >> .env
   fi
 
-  # Change secrets to random values
-  sed -i "s/SHARED_SECRET=.*/SHARED_SECRET=$RANDOM_1/" .env
-  sed -i "s/ETHERPAD_API_KEY=.*/ETHERPAD_API_KEY=$RANDOM_2/" .env
-  sed -i "s/RAILS_SECRET=.*/RAILS_SECRET=$RANDOM_3/" .env
-  sed -i "s/FSESL_PASSWORD=.*/FSESL_PASSWORD=$RANDOM_4/" .env
+  # Apply secrets to .env
+  sed -i "s/SHARED_SECRET=.*/SHARED_SECRET=\$SHARED_SECRET/" .env
+  sed -i "s/ETHERPAD_API_KEY=.*/ETHERPAD_API_KEY=\$ETHERPAD_API_KEY/" .env
+  sed -i "s/RAILS_SECRET=.*/RAILS_SECRET=\$RAILS_SECRET/" .env
+  sed -i "s/FSESL_PASSWORD=.*/FSESL_PASSWORD=\$FSESL_PASSWORD/" .env
 
   # Determine persistent Postgres secret
   if [ -z "\$POSTGRES_SECRET" ]; then
@@ -309,7 +339,7 @@ ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
     fi
   fi
   sed -i "s/POSTGRESQL_SECRET=.*/POSTGRESQL_SECRET=$POSTGRES_SECRET/" .env
-  sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=$TURN_SECRET/" .env
+  sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=\$TURN_SECRET/" .env
 
   # Generate docker-compose YAML file
   ./scripts/generate-compose >/dev/null 2>&1
