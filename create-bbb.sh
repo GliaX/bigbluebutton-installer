@@ -105,11 +105,12 @@ run_cmd doctl compute droplet create $DROPLET_NAME \
 DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | grep "$DROPLET_NAME" | awk '{print $1}')
 echo "📡 Assigning reserved IP '$RESERVED_IP' to droplet..."
 run_cmd doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
-DROPLET_IP=$RESERVED_IP
-echo "📡 Droplet assigned reserved IP: $DROPLET_IP"
+DROPLET_IP=$(doctl compute droplet list --format PublicIPv4,Name --no-header | awk -v name="$DROPLET_NAME" '$2==name {print $1}')
+echo "📡 Droplet assigned reserved IP: $RESERVED_IP"
+echo "🌐 Droplet IP: $DROPLET_IP"
 
-# Remove any old host key for this IP from known_hosts
-ssh-keygen -R "$DROPLET_IP" >/dev/null 2>&1 || true
+# Remove any old host key for the reserved IP from known_hosts
+ssh-keygen -R "$RESERVED_IP" >/dev/null 2>&1 || true
 
 # === ATTACH BLOCK STORAGE ===
 if [ -n "$BLOCK_STORAGE_NAME" ]; then
@@ -128,10 +129,10 @@ fi
 echo "⏳ Waiting for network to stabilize..."
 sleep 5
 
-OLD_BOOT_ID=$(ssh -o StrictHostKeyChecking=no root@$DROPLET_IP \
+OLD_BOOT_ID=$(ssh -o StrictHostKeyChecking=no root@$RESERVED_IP \
   'cat /proc/sys/kernel/random/boot_id')
 
-ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF2
+ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF2
   VERBOSE=$VERBOSE
   export DEBIAN_FRONTEND=noninteractive
   if [ "$DRY_RUN" != true ]; then
@@ -174,7 +175,7 @@ echo "⏳ Creating random value for secrets..."
 echo "⏳ Waiting for droplet to reboot..."
 for i in {1..60}; do
   NEW_BOOT_ID=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 \
-    root@$DROPLET_IP 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null)
+    root@$RESERVED_IP 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null)
   if [[ -n "$NEW_BOOT_ID" && "$NEW_BOOT_ID" != "$OLD_BOOT_ID" ]]; then
     echo "🔄 Detected droplet reboot."
     break
@@ -186,7 +187,7 @@ for i in {1..60}; do
 done
 
 # Optionally wait for SSH too
-until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 root@$DROPLET_IP 'echo "SSH ready"' 2>/dev/null; do
+until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 root@$RESERVED_IP 'echo "SSH ready"' 2>/dev/null; do
   sleep 2
 done
 
@@ -198,7 +199,7 @@ done
 
 # Log back in and install BBB
 
-ssh -o StrictHostKeyChecking=no root@$DROPLET_IP <<EOF3
+ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
   VERBOSE=$VERBOSE
   POSTGRES_SECRET=""
   echo "Cloning BigBlueButton Docker repository"

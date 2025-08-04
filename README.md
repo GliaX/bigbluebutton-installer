@@ -5,7 +5,9 @@ This script installs an instance of BigBlueButton on beefy server architecture s
 # Usage
 Copy `sample.env` to `.env` and update the values for your environment.
 `RESERVED_IP` should be set to your DigitalOcean reserved IP so the droplet
-is assigned that address after creation.
+is assigned that address after creation. The droplet's public IP is
+automatically detected when the droplet is created. Use the reserved IP when
+connecting over SSH.
 
 If you have a DigitalOcean block storage volume, set `BLOCK_STORAGE_NAME` to the
 name of that volume and it will be attached and mounted at `/opt/bbb-docker/data`.
