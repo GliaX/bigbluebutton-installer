@@ -48,7 +48,6 @@ password and saves it to `/opt/bbb-docker/data/postgres_secret`. Subsequent
 installs read this file to restore the password so the existing database can be
 mounted without errors.
 
-## DigitalOcean Snapshot Pricing
+## Recording resolution settings
 
-DigitalOcean charges **$0.05 USD per GB** of snapshot storage per month. This
-rate applies to both droplet and volume snapshots.
+Recording settings consist of placing the file in the persistent storage after your first run.

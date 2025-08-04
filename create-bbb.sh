@@ -342,6 +342,9 @@ ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
   sed -i "s/POSTGRESQL_SECRET=.*/POSTGRESQL_SECRET=$POSTGRES_SECRET/" .env
   sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=\$TURN_SECRET/" .env
 
+  # Copy template from persistent folder
+  cp data/docker-compose.tmpl.yml .
+
   # Generate docker-compose YAML file
   ./scripts/generate-compose >/dev/null 2>&1
 
