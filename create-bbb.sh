@@ -105,8 +105,9 @@ run_cmd doctl compute droplet create $DROPLET_NAME \
 DROPLET_ID=$(doctl compute droplet list --format ID,Name --no-header | grep "$DROPLET_NAME" | awk '{print $1}')
 echo "📡 Assigning reserved IP '$RESERVED_IP' to droplet..."
 run_cmd doctl compute reserved-ip-action assign $RESERVED_IP $DROPLET_ID
-DROPLET_IP=$RESERVED_IP
-echo "📡 Droplet assigned reserved IP: $DROPLET_IP"
+DROPLET_IP=$(doctl compute droplet list --format PublicIPv4,Name --no-header | awk -v name="$DROPLET_NAME" '$2==name {print $1}')
+echo "📡 Droplet assigned reserved IP: $RESERVED_IP"
+echo "🌐 Droplet IP: $DROPLET_IP"
 
 # Remove any old host key for this IP from known_hosts
 ssh-keygen -R "$DROPLET_IP" >/dev/null 2>&1 || true
