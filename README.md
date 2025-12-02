@@ -26,6 +26,10 @@ Run `./create-bbb.sh -h` to see available options. Passing `--dry-run` will skip
 all `apt` and `docker` commands so you can verify what the script would do
 without performing the installation.
 
+When choosing droplet size, you can now select a custom slug option (choice 4) to specify
+a custom droplet size not listed in the predefined options. This allows you to use
+any available droplet size from DigitalOcean.
+
 ## Persisting SSH Host Keys
 
 Each new droplet generates fresh SSH host keys. To keep a consistent

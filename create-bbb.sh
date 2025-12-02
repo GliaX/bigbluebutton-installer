@@ -79,13 +79,20 @@ echo "Choose droplet size:"
 echo "1) 32 vCPU / 64 GB RAM / 800GB SSD  → slug: c2-32vcpu-64gb"
 echo "2) 16 vCPU / 32 GB RAM / 400GB SSD  → slug: c2-16vcpu-32gb"
 echo "3) 8 vCPU / 16 GB RAM / 200GB SSD  → slug: c2-8vcpu-16gb"
+echo "4) Custom slug"
 
-read -rp "Enter choice (1-3): " SIZE_CHOICE
+echo "Note: You can discover available droplet sizes by running:"
+echo "  doctl compute size list -o json | jq -r '.[] | select(.regions | index(\"$REGION\")) | .slug'"
+
+read -rp "Enter choice (1-4): " SIZE_CHOICE
 
 case "$SIZE_CHOICE" in
   1) SIZE="c2-32vcpu-64gb" ;;
   2) SIZE="c2-16vcpu-32gb" ;;
   3) SIZE="c2-8vcpu-16gb" ;;
+  4)
+    read -rp "Enter custom slug: " SIZE
+    ;;
   *) echo "Invalid choice. Exiting." ; exit 1 ;;
 esac
 
