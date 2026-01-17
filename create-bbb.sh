@@ -204,6 +204,9 @@ done
     DEVICE="/dev/disk/by-id/scsi-0DO_Volume_${BLOCK_STORAGE_NAME}"
   fi
 
+# Copy recordings configuration to droplet
+run_cmd scp conf-recordings.yml root@$RESERVED_IP:/tmp/conf-recordings.yml
+
 # Log back in and install BBB
 
 ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
@@ -216,8 +219,9 @@ ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
   else
     git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker >/dev/null 2>&1
   fi
-  cd /opt/bbb-docker
-  echo "block_storage_name = $BLOCK_STORAGE_NAME"
+    cd /opt/bbb-docker
+    mv /tmp/conf-recordings.yml conf-recordings.yml
+    echo "block_storage_name = $BLOCK_STORAGE_NAME"
   # Mount attached block storage volume when specified
   if [ -n "$BLOCK_STORAGE_NAME" ]; then
     echo "Mounting block storage inside droplet"
@@ -349,11 +353,14 @@ ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
   sed -i "s/POSTGRESQL_SECRET=.*/POSTGRESQL_SECRET=$POSTGRES_SECRET/" .env
   sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=\$TURN_SECRET/" .env
 
-  # Copy template from persistent folder
-  cp data/docker-compose.tmpl.yml .
+    # Copy template from persistent folder
+    cp data/docker-compose.tmpl.yml .
 
-  # Generate docker-compose YAML file
-  ./scripts/generate-compose >/dev/null 2>&1
+    # Inject custom recordings volume into docker-compose template
+    perl -0 -i -pe 's/(recordings:\n(?:.*\n)*?  volumes:\n)/$1      - .\/conf-recordings.yml:\/usr\/local\/bigbluebutton\/core\/scripts\/presentation.yml\n/' docker-compose.tmpl.yml
+
+    # Generate docker-compose YAML file
+    ./scripts/generate-compose >/dev/null 2>&1
 
   # Run BBB via Docker Compose
   if [ "$DRY_RUN" != true ]; then
