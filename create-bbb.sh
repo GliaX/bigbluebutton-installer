@@ -196,29 +196,72 @@ OLD_BOOT_ID=$(ssh -o StrictHostKeyChecking=no root@$RESERVED_IP \
 ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF2
   VERBOSE=$VERBOSE
   export DEBIAN_FRONTEND=noninteractive
+  wait_for_apt_locks() {
+    local timeout_seconds=300
+    local waited=0
+    while fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend /var/cache/apt/archives/lock >/dev/null 2>&1; do
+      if [ "\$waited" -ge "\$timeout_seconds" ]; then
+        echo "Timed out waiting for apt/dpkg locks" >&2
+        return 1
+      fi
+      if [ "\$VERBOSE" = true ]; then
+        echo "Waiting for apt/dpkg lock holders to finish..."
+      fi
+      sleep 5
+      waited=\$((waited + 5))
+    done
+  }
+
+  apt_retry() {
+    local attempts=0
+    local max_attempts=5
+    until "\$@"; do
+      attempts=\$((attempts + 1))
+      if [ "\$attempts" -ge "\$max_attempts" ]; then
+        return 1
+      fi
+      if [ "\$VERBOSE" = true ]; then
+        echo "apt command failed, retrying in 10 seconds (attempt \$((attempts + 1))/\$max_attempts)..."
+      fi
+      sleep 10
+      wait_for_apt_locks || return 1
+    done
+  }
+
   if [ "$DRY_RUN" != true ]; then
+    if command -v cloud-init >/dev/null 2>&1; then
+      if [ "\$VERBOSE" = true ]; then
+        echo "Waiting for cloud-init to finish..."
+      fi
+      cloud-init status --wait || true
+    fi
+
+    wait_for_apt_locks
+
     if [ "\$VERBOSE" = true ]; then
-      apt update && apt upgrade -y
-      apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 update
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 upgrade -y
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 install -y git curl gnupg ca-certificates apt-transport-https software-properties-common
 
       # Install Docker
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
       echo \
         "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
         \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      apt update
-      apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 update
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     else
-      apt update >/dev/null 2>&1 && apt upgrade -y >/dev/null 2>&1
-      apt install -y git curl gnupg ca-certificates apt-transport-https software-properties-common >/dev/null 2>&1
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 update >/dev/null 2>&1
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 upgrade -y >/dev/null 2>&1
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 install -y git curl gnupg ca-certificates apt-transport-https software-properties-common >/dev/null 2>&1
 
       # Install Docker
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg >/dev/null 2>&1
       echo \
         "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
         \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      apt update >/dev/null 2>&1
-      apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null 2>&1
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 update >/dev/null 2>&1
+      apt_retry apt-get -o DPkg::Lock::Timeout=300 install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null 2>&1
     fi
   else
     echo "[Dry run] Skipping apt and docker installation commands"
@@ -403,7 +446,7 @@ ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
   sed -i "s/POSTGRESQL_SECRET=.*/POSTGRESQL_SECRET=$POSTGRES_SECRET/" .env
   sed -i "s/.*TURN_SECRET=.*/TURN_SECRET=\$TURN_SECRET/" .env
 
-  # Copy template from persistent folder
+  # Copy template from persistent folder - deprecated for now
   cp data/docker-compose.tmpl.yml .
 
   # Generate docker-compose YAML file
