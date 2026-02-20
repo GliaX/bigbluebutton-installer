@@ -266,9 +266,9 @@ ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
   echo "Cloning BigBlueButton Docker repository"
   # Clone BBB Docker repo
   if [ "\$VERBOSE" = true ]; then
-    git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker
+    git clone --recurse-submodules https://github.com/bigbluebutton/docker.git /opt/bbb-docker
   else
-    git clone https://github.com/bigbluebutton/docker.git /opt/bbb-docker >/dev/null 2>&1
+    git clone --recurse-submodules https://github.com/bigbluebutton/docker.git /opt/bbb-docker >/dev/null 2>&1
   fi
   cd /opt/bbb-docker
   echo "block_storage_name = $BLOCK_STORAGE_NAME"
