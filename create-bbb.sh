@@ -2,6 +2,7 @@
 
 DRY_RUN=false
 VERBOSE=false
+HEALTH_CHECK_ONLY=false
 
 run_cmd() {
   if [ "$VERBOSE" = true ]; then
@@ -13,9 +14,10 @@ run_cmd() {
 
 usage() {
   cat <<EOF
-Usage: $0 [--dry-run] [-v] [-h]
+Usage: $0 [--dry-run] [--health-check-only] [-v] [-h]
 
   --dry-run  Skip apt and docker commands.
+  --health-check-only  Run HTTPS health checks only (skip droplet creation/install).
   -v         Enable verbose output.
   -h         Show this help message.
 EOF
@@ -25,6 +27,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)
       DRY_RUN=true
+      shift
+      ;;
+    --health-check-only)
+      HEALTH_CHECK_ONLY=true
       shift
       ;;
     -v|--verbose)
@@ -56,6 +62,54 @@ fi
 
 # Derived values
 FULL_DOMAIN="$SUBDOMAIN.$DOMAIN"
+
+run_health_check() {
+  if [ "$DRY_RUN" = true ] && [ "$HEALTH_CHECK_ONLY" != true ]; then
+    echo "✅ BigBlueButton (Docker) dry-run completed. Skipped runtime health checks."
+    return 0
+  fi
+
+  echo "⏳ Waiting for https://$FULL_DOMAIN on port 443 to become reachable..."
+  HEALTH_OK=false
+  for i in {1..60}; do
+    STATUS_CODE=$(curl -k -sS -o /dev/null -w "%{http_code}" \
+      --resolve "$FULL_DOMAIN:443:$RESERVED_IP" "https://$FULL_DOMAIN/" || true)
+
+    if [[ "$STATUS_CODE" =~ ^(200|301|302|303|307|308)$ ]]; then
+      HEALTH_OK=true
+      break
+    fi
+
+    if [ "$VERBOSE" = true ]; then
+      echo "Health check attempt $i/60 returned HTTP ${STATUS_CODE:-000}"
+    fi
+    sleep 10
+  done
+
+  if [ "$HEALTH_OK" = true ]; then
+    echo "✅ BigBlueButton (Docker) installation completed and https://$FULL_DOMAIN is serving on port 443"
+  else
+    echo "❌ Health check failed: https://$FULL_DOMAIN did not become ready on port 443"
+    echo "Collecting diagnostics from droplet..."
+
+    ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF4
+      cd /opt/bbb-docker || exit 0
+      echo "=== docker compose ps ==="
+      docker compose ps || true
+      echo "=== haproxy logs (last 120 lines) ==="
+      docker compose logs --tail=120 haproxy || true
+      echo "=== nginx logs (last 120 lines) ==="
+      docker compose logs --tail=120 nginx || true
+EOF4
+
+    return 1
+  fi
+}
+
+if [ "$HEALTH_CHECK_ONLY" = true ]; then
+  run_health_check
+  exit $?
+fi
 
 # === CHECK FOR EXISTING DROPLET ===
 echo "✅ Checking for existing droplet '$DROPLET_NAME'..."
@@ -376,4 +430,5 @@ ssh -o StrictHostKeyChecking=no root@$RESERVED_IP <<EOF3
       quay.io/keycloak/keycloak:latest start-dev
   fi
 EOF3
-echo "✅ BigBlueButton (Docker) installation started on https://$FULL_DOMAIN"
+
+run_health_check
